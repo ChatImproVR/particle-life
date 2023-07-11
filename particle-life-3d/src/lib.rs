@@ -2,7 +2,7 @@ use cimvr_common::{
     glam::Vec3,
     render::{CameraComponent, Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     ui::{
-        egui::{color_picker::color_edit_button_rgb, DragValue, Slider, Ui},
+        egui::{color_picker::color_edit_button_rgb, DragValue, Grid, Slider, Ui},
         GuiInputMessage, GuiTab,
     },
     vr::{ControllerEvent, VrUpdate},
@@ -117,25 +117,39 @@ impl UserState for ClientState {
 
 fn config_ui(ui: &mut Ui, config: &mut SimConfig) {
     let len = config.colors.len();
-    ui.vertical(|ui| {
-    for (row_idx, color) in config.colors.iter_mut().enumerate() {
-        ui.horizontal(|ui| {
-        color_edit_button_rgb(ui, color);
-        for column in 0..len {
-            let behav = &mut config.behaviours[column + row_idx * len];
-            ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
+    Grid::new(pkg_namespace!("Particle Life Grid")).show(ui, |ui| {
+        // Top row
+        ui.label("Life");
+        for color in &mut config.colors {
+            color_edit_button_rgb(ui, color);
         }
-        });
-    }
+        ui.end_row();
+
+        // Grid
+        for (row_idx, color) in config.colors.iter_mut().enumerate() {
+            color_edit_button_rgb(ui, color);
+            for column in 0..len {
+                let behav = &mut config.behaviours[column + row_idx * len];
+                ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
+            }
+            ui.end_row();
+        }
     });
 }
 
 impl ClientState {
     fn update_ui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
+        let mut randomize = false;
         self.ui.show(io, |ui| {
             ui.add(Slider::new(&mut self.dt, 0.0..=1e-3));
             config_ui(ui, self.sim.config_mut());
-        })
+
+            randomize |= ui.button("Randomize").clicked();
+        });
+
+        if randomize {
+            self.sim = new_sim_state(io);
+        }
     }
 
     fn interaction(&mut self, io: &mut EngineIo, query: &mut QueryResult) {
