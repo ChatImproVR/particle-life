@@ -1,8 +1,12 @@
 use cimvr_common::{
     glam::Vec3,
     render::{CameraComponent, Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
+    ui::{
+        egui::{color_picker::color_edit_button_rgb, DragValue, Slider, Ui},
+        GuiInputMessage, GuiTab,
+    },
     vr::{ControllerEvent, VrUpdate},
-    Transform, ui::{GuiTab, GuiInputMessage, egui::{DragValue, Slider, color_picker::color_edit_button_rgb}},
+    Transform,
 };
 use cimvr_engine_interface::{
     dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*, println, FrameTime,
@@ -111,15 +115,26 @@ impl UserState for ClientState {
     }
 }
 
+fn config_ui(ui: &mut Ui, config: &mut SimConfig) {
+    let len = config.colors.len();
+    ui.vertical(|ui| {
+    for (row_idx, color) in config.colors.iter_mut().enumerate() {
+        ui.horizontal(|ui| {
+        color_edit_button_rgb(ui, color);
+        for column in 0..len {
+            let behav = &mut config.behaviours[column + row_idx * len];
+            ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
+        }
+        });
+    }
+    });
+}
+
 impl ClientState {
     fn update_ui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         self.ui.show(io, |ui| {
             ui.add(Slider::new(&mut self.dt, 0.0..=1e-3));
-            ui.vertical_centered(|ui| {
-                for color in &mut self.sim.config_mut().colors {
-                    color_edit_button_rgb(ui, color);
-                }
-            });
+            config_ui(ui, self.sim.config_mut());
         })
     }
 
