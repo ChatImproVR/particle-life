@@ -2,7 +2,7 @@ use cimvr_common::{
     glam::Vec3,
     render::{CameraComponent, Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     vr::{ControllerEvent, VrUpdate},
-    Transform,
+    Transform, ui::{GuiTab, GuiInputMessage, egui::{DragValue, Slider, color_picker::color_edit_button_rgb}},
 };
 use cimvr_engine_interface::{
     dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*, println, FrameTime,
@@ -19,6 +19,8 @@ struct ClientState {
     time: f32,
     last_left_pos: Vec3,
     last_right_pos: Vec3,
+    ui: GuiTab,
+    dt: f32,
 }
 
 fn new_sim_state(io: &mut EngineIo) -> SimState {
@@ -91,7 +93,16 @@ impl UserState for ClientState {
             .build();
         sched.add_system(Self::update).build();
 
+        sched
+            .add_system(Self::update_ui)
+            .subscribe::<GuiInputMessage>()
+            .build();
+
+        let ui = GuiTab::new(io, "Particle life");
+
         Self {
+            dt: 1e-3,
+            ui,
             sim,
             time: 0.,
             last_left_pos: Vec3::ZERO,
@@ -101,6 +112,17 @@ impl UserState for ClientState {
 }
 
 impl ClientState {
+    fn update_ui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
+        self.ui.show(io, |ui| {
+            ui.add(Slider::new(&mut self.dt, 0.0..=1e-3));
+            ui.vertical_centered(|ui| {
+                for color in &mut self.sim.config_mut().colors {
+                    color_edit_button_rgb(ui, color);
+                }
+            });
+        })
+    }
+
     fn interaction(&mut self, io: &mut EngineIo, query: &mut QueryResult) {
         let mut camera_transf = Transform::identity();
         for entity in query.iter("Camera") {
@@ -137,8 +159,7 @@ impl ClientState {
     }
 
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
-        let dt = 1e-3;
-        self.sim.step(dt);
+        self.sim.step(self.dt);
 
         let mesh = draw_particles(&self.sim, self.time);
         io.send(&UploadMesh {
@@ -146,7 +167,7 @@ impl ClientState {
             id: SIM_RENDER_ID,
         });
 
-        self.time += dt;
+        self.time += self.dt;
     }
 }
 

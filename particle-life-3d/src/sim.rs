@@ -131,6 +131,10 @@ impl SimState {
     pub fn config(&self) -> &SimConfig {
         &self.config
     }
+
+    pub fn config_mut(&mut self) -> &mut SimConfig {
+        &mut self.config
+    }
 }
 
 impl SimConfig {
