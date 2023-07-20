@@ -12,6 +12,7 @@ use cimvr_engine_interface::{
     dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*, println, FrameTime,
 };
 mod sim;
+use query_accel::QueryAccelerator;
 use sim::*;
 mod query_accel;
 
@@ -27,6 +28,7 @@ struct ClientState {
     dt: f32,
     selected_field: Field,
     constrain_2d: bool,
+    show_debug: bool,
 }
 
 fn new_sim_state(io: &mut EngineIo) -> SimState {
@@ -71,6 +73,7 @@ fn new_sim_state(io: &mut EngineIo) -> SimState {
 }
 
 const SIM_RENDER_ID: MeshHandle = MeshHandle::new(pkg_namespace!("Simulation"));
+const DEBUG_RENDER_ID: MeshHandle = MeshHandle::new(pkg_namespace!("Debug"));
 
 impl UserState for ClientState {
     // Implement a constructor
@@ -80,6 +83,11 @@ impl UserState for ClientState {
         io.create_entity()
             .add_component(Transform::identity().with_position(SIM_OFFSET))
             .add_component(Render::new(SIM_RENDER_ID).primitive(Primitive::Points))
+            .build();
+
+        io.create_entity()
+            .add_component(Transform::identity().with_position(SIM_OFFSET))
+            .add_component(Render::new(DEBUG_RENDER_ID).primitive(Primitive::Lines))
             .build();
 
         sched.add_system(Self::update).build();
@@ -105,6 +113,7 @@ impl UserState for ClientState {
         let ui = GuiTab::new(io, "Particle life");
 
         Self {
+            show_debug: false,
             selected_field: Field::InterStrength,
             dt: 1e-3,
             ui,
@@ -161,10 +170,22 @@ fn config_ui(ui: &mut Ui, config: &mut SimConfig, selected_field: &mut Field) {
             for column in 0..len {
                 let behav = &mut config.behaviours[column + row_idx * len];
                 match selected_field {
-                    Field::InterStrength => ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2)),
-                    Field::InterMaxDist => ui.add(DragValue::new(&mut behav.inter_max_dist).clamp_range(0.0..=1.0).speed(1e-2)),
-                    Field::DefaultRepulse => ui.add(DragValue::new(&mut behav.default_repulse).speed(1e-2)),
-                    Field::InterThreshold => ui.add(DragValue::new(&mut behav.inter_threshold).clamp_range(0.0..=1.0).speed(1e-2)),
+                    Field::InterStrength => {
+                        ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2))
+                    }
+                    Field::InterMaxDist => ui.add(
+                        DragValue::new(&mut behav.inter_max_dist)
+                            .clamp_range(0.0..=1.0)
+                            .speed(1e-2),
+                    ),
+                    Field::DefaultRepulse => {
+                        ui.add(DragValue::new(&mut behav.default_repulse).speed(1e-2))
+                    }
+                    Field::InterThreshold => ui.add(
+                        DragValue::new(&mut behav.inter_threshold)
+                            .clamp_range(0.0..=1.0)
+                            .speed(1e-2),
+                    ),
                 };
             }
             ui.end_row();
@@ -175,6 +196,7 @@ fn config_ui(ui: &mut Ui, config: &mut SimConfig, selected_field: &mut Field) {
 impl ClientState {
     fn update_ui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         let mut randomize = false;
+
         self.ui.show(io, |ui| {
             ui.add(Slider::new(&mut self.dt, 0.0..=1e-3));
             config_ui(ui, self.sim.config_mut(), &mut self.selected_field);
@@ -184,8 +206,13 @@ impl ClientState {
                 project_to_2d(&mut self.sim);
             }
 
+            ui.checkbox(&mut self.show_debug, "Debug");
+
             randomize |= ui.button("Randomize").clicked();
         });
+
+        //dbg!(&debug_upload_mesh.mesh.vertices);
+        //dbg!(debug_upload_mesh.mesh.vertices.len());
 
         if randomize {
             self.sim = new_sim_state(io);
@@ -235,6 +262,19 @@ impl ClientState {
             mesh,
             id: SIM_RENDER_ID,
         });
+
+        let mut debug_upload_mesh = UploadMesh {
+            mesh: Mesh::new(),
+            id: DEBUG_RENDER_ID,
+        };
+        if self.show_debug {
+            debug_upload_mesh = UploadMesh {
+                mesh: query_accel_buckets(&self.sim.query_accel()),
+                id: DEBUG_RENDER_ID,
+            };
+        }
+
+        io.send(&debug_upload_mesh);
 
         self.time += self.dt;
     }
@@ -324,3 +364,40 @@ fn project_to_2d(state: &mut SimState) {
         p.pos.y = 0.;
     }
 }
+
+fn query_accel_buckets(query_accel: &QueryAccelerator) -> Mesh {
+    let mut mesh = Mesh::new();
+    let color = [0.3; 3];
+    let radius = query_accel.radius();
+    for (index, _indices) in query_accel.tiles() {
+        let corner = Vec3::from(index.map(|f| f as f32 * radius));
+        add_cube(&mut mesh, corner, radius, color);
+    }
+
+    mesh
+}
+
+fn add_cube(mesh: &mut Mesh, corner: Vec3, width: f32, color: [f32; 3]) {
+    let mut vert = |offset: [f32; 3]| {
+        mesh.push_vertex(Vertex::new(
+            (corner + Vec3::from(offset) * width).into(),
+            color,
+        ))
+    };
+
+    let a = vert([-1., -1., -1.]);
+    let b = vert([-1., -1., 1.]);
+    let c = vert([-1., 1., -1.]);
+    let d = vert([-1., 1., 1.]);
+
+    let e = vert([1., -1., 1.]);
+    let f = vert([1., -1., -1.]);
+    let g = vert([1., 1., 1.]);
+    let h = vert([1., 1., -1.]);
+
+    mesh.push_indices(&[
+        a, b, c, d, e, f, g, h, a, c, b, d, e, g, f, h, a, f, b, e, c, h, d, g,
+    ]);
+}
+
+// TODO: Pause feature

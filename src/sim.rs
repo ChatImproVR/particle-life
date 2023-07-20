@@ -80,6 +80,10 @@ impl SimState {
         }
     }
 
+    pub fn query_accel(&self) -> &QueryAccelerator {
+        &self.last_accel
+    }
+
     pub fn step(&mut self, dt: f32) {
         let points: Vec<Vec3> = self.particles.iter().map(|p| p.pos).collect();
 
