@@ -12,5 +12,5 @@ crate-type = ["cdylib"]
 serde = { version = "1", features = ["derive"] }
 zwohash = "0.1.2"
 
-cimvr_common = { path = "../../chatimprovr/common" }
-cimvr_engine_interface = { path = "../../chatimprovr/engine_interface" }
+cimvr_common = { path = "../chatimprovr/common" }
+cimvr_engine_interface = { path = "../chatimprovr/engine_interface" }
