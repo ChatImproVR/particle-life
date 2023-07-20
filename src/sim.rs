@@ -6,7 +6,6 @@ use crate::query_accel::QueryAccelerator;
 pub struct SimState {
     particles: Vec<Particle>,
     config: SimConfig,
-    max_interaction_radius: f32,
     last_accel: QueryAccelerator,
     last_points: Vec<Vec3>,
 }
@@ -63,16 +62,10 @@ impl Behaviour {
 impl SimState {
     pub fn new(rng: &mut Pcg, config: SimConfig, n: usize) -> Self {
         let particles = (0..n).map(|_| random_particle(rng, &config)).collect();
-        let max_interaction_radius: f32 = config
-            .behaviours
-            .iter()
-            .map(|b| b.inter_max_dist)
-            .fold(0., |r, acc| acc.max(r));
-
+        
         Self {
             particles,
             config,
-            max_interaction_radius,
             last_points: vec![],
             last_accel: QueryAccelerator::new(&[], 1.),
         }
@@ -89,7 +82,14 @@ impl SimState {
 
     pub fn step(&mut self, dt: f32) {
         let points: Vec<Vec3> = self.particles.iter().map(|p| p.pos).collect();
-        let accel = QueryAccelerator::new(&points, self.max_interaction_radius);
+
+        let max_interaction_radius: f32 = self.config
+            .behaviours
+            .iter()
+            .map(|b| b.inter_max_dist)
+            .fold(0., |r, acc| acc.max(r));
+
+        let accel = QueryAccelerator::new(&points, max_interaction_radius);
 
         let len = self.particles.len();
         for i in 0..len {
