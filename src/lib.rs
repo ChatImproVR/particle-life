@@ -400,19 +400,17 @@ fn add_cube(mesh: &mut Mesh, corner: Vec3, width: f32, color: [f32; 3]) {
         ))
     };
 
-    let a = vert([-1., -1., -1.]);
-    let b = vert([-1., -1., 1.]);
-    let c = vert([-1., 1., -1.]);
-    let d = vert([-1., 1., 1.]);
+    let a = vert([0., 0., 0.]);
+    let b = vert([0., 0., 1.]);
+    let c = vert([0., 1., 0.]);
+    let d = vert([0., 1., 1.]);
 
-    let e = vert([1., -1., 1.]);
-    let f = vert([1., -1., -1.]);
+    let e = vert([1., 0., 1.]);
+    let f = vert([1., 0., 0.]);
     let g = vert([1., 1., 1.]);
-    let h = vert([1., 1., -1.]);
+    let h = vert([1., 1., 0.]);
 
     mesh.push_indices(&[
         a, b, c, d, e, f, g, h, a, c, b, d, e, g, f, h, a, f, b, e, c, h, d, g,
     ]);
 }
-
-// TODO: Pause feature

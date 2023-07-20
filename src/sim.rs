@@ -1,5 +1,6 @@
 use cimvr_common::glam::Vec3;
 use cimvr_engine_interface::pcg::Pcg;
+use cimvr_engine_interface::{dbg, prelude::*};
 
 use crate::query_accel::QueryAccelerator;
 
@@ -62,7 +63,7 @@ impl Behaviour {
 impl SimState {
     pub fn new(rng: &mut Pcg, config: SimConfig, n: usize) -> Self {
         let particles = (0..n).map(|_| random_particle(rng, &config)).collect();
-        
+
         Self {
             particles,
             config,
@@ -85,9 +86,25 @@ impl SimState {
     }
 
     pub fn step(&mut self, dt: f32) {
+        /*
+        // For cache friendliness..
+        if self.last_accel.tiles().count() > 0 {
+            self.particles = self
+                .last_accel
+                .tiles()
+                .map(|(_, indices)| indices.iter())
+                .flatten()
+                .map(|&idx| self.particles[idx])
+                .collect();
+        }
+        */
+
+        //dbg!(self.particles.len());
+
         let points: Vec<Vec3> = self.particles.iter().map(|p| p.pos).collect();
 
-        let max_interaction_radius: f32 = self.config
+        let max_interaction_radius: f32 = self
+            .config
             .behaviours
             .iter()
             .map(|b| b.inter_max_dist)
@@ -136,7 +153,6 @@ impl SimState {
         &mut self.particles
     }
 
-
     pub fn config(&self) -> &SimConfig {
         &self.config
     }
@@ -162,8 +178,8 @@ fn random_particle(rng: &mut Pcg, config: &SimConfig) -> Particle {
     Particle {
         pos: Vec3::new(rng.gen_f32(), rng.gen_f32(), rng.gen_f32()) * range
             - Vec3::splat(range / 2.),
-        vel: Vec3::ZERO,
-        color: config.random_color(rng),
+            vel: Vec3::ZERO,
+            color: config.random_color(rng),
     }
 }
 
