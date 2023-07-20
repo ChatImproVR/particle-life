@@ -25,6 +25,7 @@ struct ClientState {
     last_right_pos: Vec3,
     ui: GuiTab,
     dt: f32,
+    selected_field: Field,
     constrain_2d: bool,
 }
 
@@ -66,8 +67,6 @@ fn new_sim_state(io: &mut EngineIo) -> SimState {
         damping: 150.,
     };
 
-    dbg!(&palette);
-
     SimState::new(&mut Pcg::new(), palette, 4_000)
 }
 
@@ -106,6 +105,7 @@ impl UserState for ClientState {
         let ui = GuiTab::new(io, "Particle life");
 
         Self {
+            selected_field: Field::InterStrength,
             dt: 1e-3,
             ui,
             sim,
@@ -117,7 +117,36 @@ impl UserState for ClientState {
     }
 }
 
-fn config_ui(ui: &mut Ui, config: &mut SimConfig) {
+#[derive(PartialEq)]
+pub enum Field {
+    /// Magnitude of the default repulsion force
+    DefaultRepulse,
+    /// Zero point between default repulsion and particle interaction (0 to 1)
+    InterThreshold,
+    /// Interaction peak strength
+    InterStrength,
+    /// Maximum distance of particle interaction (0 to 1)
+    InterMaxDist,
+}
+
+fn config_ui(ui: &mut Ui, config: &mut SimConfig, selected_field: &mut Field) {
+    ui.horizontal(|ui| {
+        ui.selectable_value(selected_field, Field::DefaultRepulse, "Default repulsion");
+        ui.selectable_value(
+            selected_field,
+            Field::InterThreshold,
+            "Interaction threshold",
+        );
+    });
+    ui.horizontal(|ui| {
+        ui.selectable_value(selected_field, Field::InterStrength, "Interaction Strength");
+        ui.selectable_value(
+            selected_field,
+            Field::InterMaxDist,
+            "Interaction max distance",
+        );
+    });
+
     let len = config.colors.len();
     Grid::new(pkg_namespace!("Particle Life Grid")).show(ui, |ui| {
         // Top row
@@ -126,13 +155,17 @@ fn config_ui(ui: &mut Ui, config: &mut SimConfig) {
             color_edit_button_rgb(ui, color);
         }
         ui.end_row();
-
         // Grid
         for (row_idx, color) in config.colors.iter_mut().enumerate() {
             color_edit_button_rgb(ui, color);
             for column in 0..len {
                 let behav = &mut config.behaviours[column + row_idx * len];
-                ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2));
+                match selected_field {
+                    Field::InterStrength => ui.add(DragValue::new(&mut behav.inter_strength).speed(1e-2)),
+                    Field::InterMaxDist => ui.add(DragValue::new(&mut behav.inter_max_dist).clamp_range(0.0..=1.0).speed(1e-2)),
+                    Field::DefaultRepulse => ui.add(DragValue::new(&mut behav.default_repulse).speed(1e-2)),
+                    Field::InterThreshold => ui.add(DragValue::new(&mut behav.inter_threshold).clamp_range(0.0..=1.0).speed(1e-2)),
+                };
             }
             ui.end_row();
         }
@@ -144,7 +177,7 @@ impl ClientState {
         let mut randomize = false;
         self.ui.show(io, |ui| {
             ui.add(Slider::new(&mut self.dt, 0.0..=1e-3));
-            config_ui(ui, self.sim.config_mut());
+            config_ui(ui, self.sim.config_mut(), &mut self.selected_field);
 
             ui.checkbox(&mut self.constrain_2d, "Constrain to 2D");
             if self.constrain_2d {
