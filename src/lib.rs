@@ -29,6 +29,8 @@ struct ClientState {
     selected_field: Field,
     constrain_2d: bool,
     show_debug: bool,
+    pause: bool,
+    deepest: usize,
 }
 
 fn new_sim_state(io: &mut EngineIo) -> SimState {
@@ -122,6 +124,8 @@ impl UserState for ClientState {
             last_left_pos: Vec3::ZERO,
             last_right_pos: Vec3::ZERO,
             constrain_2d: false,
+            pause: false,
+            deepest: 0,
         }
     }
 }
@@ -191,6 +195,8 @@ fn config_ui(ui: &mut Ui, config: &mut SimConfig, selected_field: &mut Field) {
             ui.end_row();
         }
     });
+
+    ui.add(DragValue::new(&mut config.damping).prefix("Damping: "));
 }
 
 impl ClientState {
@@ -208,7 +214,14 @@ impl ClientState {
 
             ui.checkbox(&mut self.show_debug, "Debug");
 
+            ui.checkbox(&mut self.pause, "Pause");
+
             randomize |= ui.button("Randomize").clicked();
+
+            let deepest = self.sim.query_accel().tiles().map(|(_, b)| b.len()).max().unwrap_or(0);
+            ui.label(format!("Deepest bucket: {}", deepest));
+            self.deepest = self.deepest.max(deepest);
+            ui.label(format!("Deepest bucket ever: {}", self.deepest));
         });
 
         //dbg!(&debug_upload_mesh.mesh.vertices);
@@ -255,7 +268,9 @@ impl ClientState {
     }
 
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
-        self.sim.step(self.dt);
+        if !self.pause {
+            self.sim.step(self.dt);
+        }
 
         let mesh = draw_particles(&self.sim, self.time);
         io.send(&UploadMesh {
@@ -367,7 +382,7 @@ fn project_to_2d(state: &mut SimState) {
 
 fn query_accel_buckets(query_accel: &QueryAccelerator) -> Mesh {
     let mut mesh = Mesh::new();
-    let color = [0.3; 3];
+    let color = [0.1; 3];
     let radius = query_accel.radius();
     for (index, _indices) in query_accel.tiles() {
         let corner = Vec3::from(index.map(|f| f as f32 * radius));
