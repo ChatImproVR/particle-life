@@ -128,6 +128,11 @@ impl SimState {
         &self.particles
     }
 
+    pub fn particles_mut(&mut self) -> &mut [Particle] {
+        &mut self.particles
+    }
+
+
     pub fn config(&self) -> &SimConfig {
         &self.config
     }

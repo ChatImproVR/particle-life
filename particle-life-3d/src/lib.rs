@@ -25,6 +25,7 @@ struct ClientState {
     last_right_pos: Vec3,
     ui: GuiTab,
     dt: f32,
+    constrain_2d: bool,
 }
 
 fn new_sim_state(io: &mut EngineIo) -> SimState {
@@ -111,6 +112,7 @@ impl UserState for ClientState {
             time: 0.,
             last_left_pos: Vec3::ZERO,
             last_right_pos: Vec3::ZERO,
+            constrain_2d: false,
         }
     }
 }
@@ -143,6 +145,11 @@ impl ClientState {
         self.ui.show(io, |ui| {
             ui.add(Slider::new(&mut self.dt, 0.0..=1e-3));
             config_ui(ui, self.sim.config_mut());
+
+            ui.checkbox(&mut self.constrain_2d, "Constrain to 2D");
+            if self.constrain_2d {
+                project_to_2d(&mut self.sim);
+            }
 
             randomize |= ui.button("Randomize").clicked();
         });
@@ -277,4 +284,10 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
     b += m;
 
     [r, g, b]
+}
+
+fn project_to_2d(state: &mut SimState) {
+    for p in state.particles_mut() {
+        p.pos.y = 0.;
+    }
 }
