@@ -37,9 +37,18 @@ pub fn newton_step(state: &mut SimState, cfg: &SimConfig, newton: &NewtonConfig)
         let vel = state.vel[i] + total_accel * newton.dt;
 
         // Dampen velocity
-        let vel = vel * (1. - newton.dt * newton.damping);
+        let vel = vel * (1. - newton.damping);
 
         state.vel[i] = vel;
         state.pos[i] += vel * newton.dt;
+    }
+}
+
+impl Default for NewtonConfig {
+    fn default() -> Self {
+        Self {
+            damping: 0.1,
+            dt: 1e-3,
+        }
     }
 }

@@ -12,7 +12,11 @@ use cimvr_engine_interface::{
     dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*, println, FrameTime,
 };
 
-use crate::{SimState, SimConfig, newton::{NewtonConfig, newton_step}, query_accel::QueryAccelerator};
+use crate::{
+    newton::{newton_step, NewtonConfig},
+    query_accel::QueryAccelerator,
+    SimConfig, SimState,
+};
 
 const SIM_OFFSET: Vec3 = Vec3::new(0., 1., 0.);
 
@@ -48,7 +52,6 @@ const DEBUG_RENDER_ID: MeshHandle = MeshHandle::new(pkg_namespace!("Debug"));
 impl UserState for ClientState {
     // Implement a constructor
     fn new(io: &mut EngineIo, sched: &mut EngineSchedule<Self>) -> Self {
-
         io.create_entity()
             .add_component(Transform::identity().with_position(SIM_OFFSET))
             .add_component(Render::new(SIM_RENDER_ID).primitive(Primitive::Points))
@@ -90,10 +93,7 @@ impl UserState for ClientState {
 
         let state = SimState::new_uniform_cube(&cfg, n, 1.);
 
-        let newton = NewtonConfig {
-            damping: 100.,
-            dt: 1e-3,
-        };
+        let newton = NewtonConfig::default();
 
         Self {
             show_debug: false,
@@ -183,7 +183,7 @@ fn config_ui(ui: &mut Ui, config: &mut SimConfig, selected_field: &mut Field) {
 
 impl ClientState {
     fn update_ui(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
-        let mut randomize = false;
+        let mut reset_particles = false;
 
         self.ui.show(io, |ui| {
             config_ui(ui, &mut self.cfg, &mut self.selected_field);
@@ -199,7 +199,12 @@ impl ClientState {
 
             ui.checkbox(&mut self.pause, "Pause");
 
-            randomize |= ui.button("Randomize").clicked();
+            if ui.button("Randomize").clicked() {
+                self.cfg = SimConfig::random();
+                reset_particles = true;
+            }
+
+            reset_particles |= ui.button("Reset particles").clicked();
 
             /*
             let deepest = self.state.accel.tiles().map(|(_, b)| b.len()).max().unwrap_or(0);
@@ -210,23 +215,23 @@ impl ClientState {
 
             ui.separator();
             ui.horizontal(|ui| {
+                ui.label("Integrator: ");
                 ui.selectable_value(&mut self.integrator, Integrator::Newton, "Newton");
                 ui.selectable_value(&mut self.integrator, Integrator::MonteCarlo, "Monte Carlo");
             });
             match self.integrator {
                 Integrator::Newton => {
-                    ui.add(Slider::new(&mut self.newton.dt, 0.0..=1e-3));
-                    ui.add(DragValue::new(&mut self.newton.damping).prefix("Damping: "));
+                    ui.add(Slider::new(&mut self.newton.dt, 0.0..=1e-2));
+                    ui.add(DragValue::new(&mut self.newton.damping).prefix("Damping: ").speed(1e-2));
                 }
-                Integrator::MonteCarlo => {
-                }
+                Integrator::MonteCarlo => {}
             }
         });
 
         //dbg!(&debug_upload_mesh.mesh.vertices);
         //dbg!(debug_upload_mesh.mesh.vertices.len());
 
-        if randomize {
+        if reset_particles {
             self.state = SimState::new_uniform_cube(&self.cfg, self.n, 1.);
         }
     }
@@ -332,7 +337,6 @@ fn draw_particles(state: &SimState, cfg: &SimConfig) -> Mesh {
     Mesh { vertices, indices }
 }
 
-
 /*
 fn project_to_2d(state: &mut SimState) {
     for p in state.particles_mut() {
@@ -375,4 +379,3 @@ fn add_cube(mesh: &mut Mesh, corner: Vec3, width: f32, color: [f32; 3]) {
         a, b, c, d, e, f, g, h, a, c, b, d, e, g, f, h, a, f, b, e, c, h, d, g,
     ]);
 }
-
