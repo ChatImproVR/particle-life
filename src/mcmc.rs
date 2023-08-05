@@ -1,11 +1,11 @@
+use crate::{query_accel::QueryAccelerator, rng, SimConfig, SimState};
 use cimvr_common::{
-    glam::Vec2,
+    glam::{Vec2, Vec3},
     render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
     ui::{egui::DragValue, GuiInputMessage, GuiTab},
     Transform,
 };
 use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
-use crate::query_accel::QueryAccelerator;
 use rand::prelude::*;
 use rand_distr::Normal;
 
@@ -15,83 +15,52 @@ pub struct MonteCarloConfig {
     pub substeps: usize,
 }
 
-/*
-    pub fn new(n: usize, accel_radius: f32, rules: Ruleset, temperature: f32, walk_sigma: f32) -> Self {
-        let mut rng = rng();
+pub fn mcmc_step(state: &mut SimState, cfg: &SimConfig, mcmc: &MonteCarloConfig) {
+    let ref mut rng = rng();
 
-        let s = 1.;
+    // Pick a particle
+    let idx = rng.gen_range(0..state.pos.len());
 
-        let positions = (0..n)
-            .map(|_| Vec2::new(rng.gen_range(-s..=s), rng.gen_range(-s..=s)))
-            .collect();
+    // Perterb it
+    let original = state.pos[idx];
+    let mut candidate = original;
+    let normal = Normal::new(0.0, mcmc.walk_sigma).unwrap();
+    candidate.x += normal.sample(rng);
+    candidate.y += normal.sample(rng);
 
-        let types = (0..n)
-            .map(|_| rng.gen_range(0..rules.particles.len() as u8))
-            .collect();
+    // Calculate the candidate change in energy
+    let old_energy = energy_due_to(idx, original, state, cfg);
+    let new_energy = energy_due_to(idx, candidate, state, cfg);
+    let delta_e = new_energy - old_energy;
 
-        let state = State { positions, types };
-
-        let accel = QueryAccelerator::new(&state.positions, accel_radius);
-
-        Self {
-            state,
-            accel,
-            temperature,
-            walk_sigma,
-            rules,
-        }
-    }
-
-    pub fn step(&mut self) {
-        let ref mut rng = rng();
-
-        // Pick a particle
-        let idx = rng.gen_range(0..self.state.positions.len());
-
-        // Perterb it
-        let original = self.state.positions[idx];
-        let mut candidate = original;
-        let normal = Normal::new(0.0, self.walk_sigma).unwrap();
-        candidate.x += normal.sample(rng);
-        candidate.y += normal.sample(rng);
-
-        // Calculate the candidate change in energy
-        let old_energy = self.energy_due_to(idx, original);
-        let new_energy = self.energy_due_to(idx, candidate);
-        let delta_e = new_energy - old_energy;
-
-        // Decide whether to accept the change
-        let probability = (-delta_e / self.temperature).exp();
-        //let probability = (-delta_e).exp();
-        if probability > rng.gen_range(0.0..=1.0) {
-            self.state.positions[idx] = candidate;
-            self.accel.replace_point(idx, original, candidate);
-        }
-    }
-
-    pub fn energy_due_to(&self, idx: usize, pos: Vec2) -> f32 {
-        let mut energy = 0.;
-
-        let my_ruleset = self.state.types[idx] as usize;
-        let my_ruleset = &self.rules.particles[my_ruleset];
-
-        for neighbor in self.accel.query_neighbors(&self.state.positions, idx, pos) {
-            let distance = self.state.positions[neighbor].distance(pos);
-            let potential = self.state.types[neighbor] as usize;
-            let potential = my_ruleset.interactions[potential];
-
-            let potential = potential.eval(distance);
-            energy += potential;
-        }
-        energy
+    // Decide whether to accept the change
+    let probability = (-delta_e / mcmc.temperature).exp();
+    //let probability = (-delta_e).exp();
+    if probability > rng.gen_range(0.0..=1.0) {
+        state.pos[idx] = candidate;
+        state.accel.replace_point(idx, original, candidate);
     }
 }
-*/
+
+pub fn energy_due_to(idx: usize, pos: Vec3, state: &SimState, cfg: &SimConfig) -> f32 {
+    let mut energy = 0.;
+
+    let my_color = state.colors[idx];
+
+    for neighbor in state.accel.query_neighbors(&state.pos, idx, pos) {
+        let distance = state.pos[neighbor].distance(pos);
+        let behav = cfg.get_behaviour(my_color, state.colors[neighbor]);
+
+        let potential = behav.potential(distance);
+        energy += potential;
+    }
+    energy
+}
 
 impl Default for MonteCarloConfig {
     fn default() -> Self {
         Self {
-            temperature: 0.001, 
+            temperature: 0.001,
             walk_sigma: 0.01,
             substeps: 1500,
         }

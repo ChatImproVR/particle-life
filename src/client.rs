@@ -15,7 +15,7 @@ use cimvr_engine_interface::{
 use crate::{
     newton::{newton_step, NewtonConfig},
     query_accel::QueryAccelerator,
-    SimConfig, SimState, mcmc::MonteCarloConfig,
+    SimConfig, SimState, mcmc::{MonteCarloConfig, mcmc_step},
 };
 
 const SIM_OFFSET: Vec3 = Vec3::new(0., 1., 0.);
@@ -295,7 +295,7 @@ impl ClientState {
         if !self.pause {
             match self.integrator {
                 Integrator::Newton => newton_step(&mut self.state, &self.cfg, &self.newton),
-                Integrator::MonteCarlo => (),
+                Integrator::MonteCarlo => mcmc_step(&mut self.state, &self.cfg, &self.mcmc),
             }
         }
 
