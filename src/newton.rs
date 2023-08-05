@@ -11,8 +11,6 @@ pub struct NewtonConfig {
 }
 
 pub fn newton_step(state: &mut SimState, cfg: &SimConfig, newton: &NewtonConfig) {
-    state.accel = QueryAccelerator::new(&state.pos, cfg.max_interaction_radius());
-
     let len = state.pos.len();
 
     for i in 0..len {

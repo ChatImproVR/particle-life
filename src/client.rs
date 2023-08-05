@@ -22,6 +22,7 @@ const SIM_OFFSET: Vec3 = Vec3::new(0., 1., 0.);
 enum Integrator {
     Newton,
     MonteCarlo,
+    Mixed,
 }
 
 // All state associated with client-side behaviour
@@ -219,38 +220,43 @@ impl ClientState {
             ui.horizontal(|ui| {
                 ui.label("Integrator: ");
                 ui.selectable_value(&mut self.integrator, Integrator::Newton, "Newton");
-                if ui
+                let mut reset_accel = false;
+                reset_accel |= ui
                     .selectable_value(&mut self.integrator, Integrator::MonteCarlo, "Monte Carlo")
-                    .clicked()
-                {
+                    .clicked();
+
+                reset_accel |= ui
+                    .selectable_value(&mut self.integrator, Integrator::Mixed, "Mixed")
+                    .clicked();
+
+                if reset_accel {
                     self.state.accel =
                         QueryAccelerator::new(&self.state.pos, self.cfg.max_interaction_radius());
                 }
             });
 
-            match self.integrator {
-                Integrator::Newton => {
-                    ui.add(Slider::new(&mut self.newton.dt, 0.0..=1e-2));
-                    ui.add(
-                        DragValue::new(&mut self.newton.damping)
-                            .prefix("Damping: ")
-                            .speed(1e-2),
-                    );
-                }
-                Integrator::MonteCarlo => {
-                    ui.add(DragValue::new(&mut self.mcmc.substeps).prefix("Substeps: "));
-                    ui.add(
-                        DragValue::new(&mut self.mcmc.temperature)
-                            .prefix("Temp: ")
-                            .speed(1e-2),
-                    );
-                    ui.add(
-                        DragValue::new(&mut self.mcmc.walk_sigma)
-                            .prefix("Walk σ: ")
-                            .clamp_range(0.0..=f32::INFINITY)
-                            .speed(1e-3),
-                    );
-                }
+            if matches!(self.integrator, Integrator::Newton | Integrator::Mixed) {
+                ui.add(Slider::new(&mut self.newton.dt, 0.0..=1e-2));
+                ui.add(
+                    DragValue::new(&mut self.newton.damping)
+                        .prefix("Damping: ")
+                        .speed(1e-2),
+                );
+            }
+
+            if matches!(self.integrator, Integrator::MonteCarlo | Integrator::Mixed) {
+                ui.add(DragValue::new(&mut self.mcmc.substeps).prefix("Substeps: "));
+                ui.add(
+                    DragValue::new(&mut self.mcmc.temperature)
+                        .prefix("Temp: ")
+                        .speed(1e-2),
+                );
+                ui.add(
+                    DragValue::new(&mut self.mcmc.walk_sigma)
+                        .prefix("Walk σ: ")
+                        .clamp_range(0.0..=f32::INFINITY)
+                        .speed(1e-3),
+                );
             }
         });
 
@@ -300,10 +306,16 @@ impl ClientState {
     */
 
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
+        self.state.accel = QueryAccelerator::new(&self.state.pos, self.cfg.max_interaction_radius());
+
         if !self.pause {
             match self.integrator {
                 Integrator::Newton => newton_step(&mut self.state, &self.cfg, &self.newton),
                 Integrator::MonteCarlo => mcmc_step(&mut self.state, &self.cfg, &self.mcmc),
+                Integrator::Mixed => {
+                    mcmc_step(&mut self.state, &self.cfg, &self.mcmc);
+                    newton_step(&mut self.state, &self.cfg, &self.newton);
+                }
             }
         }
 

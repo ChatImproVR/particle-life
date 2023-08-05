@@ -34,8 +34,8 @@ pub fn mcmc_step(state: &mut SimState, cfg: &SimConfig, mcmc: &MonteCarloConfig)
         let probability = (-delta_e / mcmc.temperature).exp();
         //let probability = (-delta_e).exp();
         if probability > rng.gen_range(0.0..=1.0) {
-            state.pos[idx] = candidate;
             state.accel.replace_point(idx, original, candidate);
+            state.pos[idx] = candidate;
         }
     }
 }
