@@ -28,7 +28,7 @@ pub fn newton_step(state: &mut SimState, cfg: &SimConfig, newton: &NewtonConfig)
             // Accelerate towards b
             let normal = diff.normalize();
             let behav = cfg.get_behaviour(state.colors[i], state.colors[neighbor]);
-            let accel = normal * behav.force(dist) / dist;
+            let accel = normal * behav.force(dist);
             total_accel += accel;
         }
 
