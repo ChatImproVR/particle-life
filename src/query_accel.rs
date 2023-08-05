@@ -2,6 +2,7 @@ use cimvr_common::glam::Vec3;
 use zwohash::HashMap;
 
 /// Euclidean neighborhood query accelerator. Uses a hashmap grid.
+#[derive(Clone)]
 pub struct QueryAccelerator {
     cells: HashMap<[i32; 3], Vec<usize>>,
     neighbors: Vec<[i32; 3]>,
@@ -39,9 +40,10 @@ impl QueryAccelerator {
     */
 
     // Query the neighbors of `queried_idx` in `points`
-    pub fn query_neighbors_by_point<'s, 'p: 's>(
+    pub fn query_neighbors<'s, 'p: 's>(
         &'s self,
         points: &'p [Vec3],
+        query_idx: usize,
         query_point: Vec3,
     ) -> impl Iterator<Item = usize> + 's {
         let origin = quantize(query_point, self.radius);
@@ -53,7 +55,7 @@ impl QueryAccelerator {
                 self.cells.get(&key).map(|cell_indices| {
                     cell_indices.iter().copied().filter(move |&idx| {
                         let dist = (points[idx] - query_point).length_squared();
-                        dist <= self.radius_sq
+                        idx != query_idx && dist <= self.radius_sq
                     })
                 })
             })
@@ -61,24 +63,22 @@ impl QueryAccelerator {
             .flatten()
     }
 
-    // Query the neighbors of `queried_idx` in `points`
-    pub fn query_neighbors<'s, 'p: 's>(
-        &'s self,
-        points: &'p [Vec3],
-        queried_idx: usize,
-    ) -> impl Iterator<Item = usize> + 's {
-        let query_point = points[queried_idx];
-        self.query_neighbors_by_point(points, query_point)
-            .filter(move |i| *i != queried_idx)
+    pub fn replace_point(&mut self, idx: usize, prev: Vec3, current: Vec3) {
+        // TODO: Keep points in sorted order and use binary search! Or use hashsets for O(n)?
+        // Find this point in our cells and remove it
+        let prev_bins = self.cells.get_mut(&quantize(prev, self.radius)).unwrap();
+        let prev_idx = prev_bins.iter().position(|v| *v == idx).unwrap();
+        prev_bins.remove(prev_idx);
+
+        // Add this point to its new cell
+        self.cells.entry(quantize(current, self.radius)).or_default().push(idx);
     }
 
-    pub fn radius(&self) -> f32 {
-        self.radius
-    }
-
+    /*
     pub fn tiles(&self) -> impl Iterator<Item = (&[i32; 3], &Vec<usize>)> {
         self.cells.iter()
     }
+    */
 }
 
 fn add(mut a: [i32; 3], b: [i32; 3]) -> [i32; 3] {
