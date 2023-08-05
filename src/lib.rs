@@ -3,7 +3,7 @@ use cimvr_engine_interface::pcg::Pcg;
 use query_accel::QueryAccelerator;
 
 mod newton;
-//mod mcmc;
+mod mcmc;
 mod client;
 mod query_accel;
 use rand::prelude::*;
@@ -47,7 +47,7 @@ impl Behaviour {
     /// Returns the force on this particle
     ///
     /// Distance is in the range `0.0..=1.0`
-    fn force(&self, dist: f32) -> f32 {
+    pub fn force(&self, dist: f32) -> f32 {
         if dist < self.inter_threshold {
             let f = dist / self.inter_threshold;
             (1. - f) * -self.default_repulse
@@ -63,7 +63,7 @@ impl Behaviour {
     }
 
     /// Potential, which falls to zero over distance
-    fn potential(&self, dist: f32) -> f32 {
+    pub fn potential(&self, dist: f32) -> f32 {
         let d = (self.inter_max_dist - self.inter_threshold) / 2.;
 
         let repulse_r = dist.clamp(0., self.inter_threshold);

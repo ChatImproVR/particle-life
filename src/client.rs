@@ -15,7 +15,7 @@ use cimvr_engine_interface::{
 use crate::{
     newton::{newton_step, NewtonConfig},
     query_accel::QueryAccelerator,
-    SimConfig, SimState,
+    SimConfig, SimState, mcmc::MonteCarloConfig,
 };
 
 const SIM_OFFSET: Vec3 = Vec3::new(0., 1., 0.);
@@ -44,6 +44,7 @@ struct ClientState {
 
     integrator: Integrator,
     newton: NewtonConfig,
+    mcmc: MonteCarloConfig,
 }
 
 const SIM_RENDER_ID: MeshHandle = MeshHandle::new(pkg_namespace!("Simulation"));
@@ -65,18 +66,18 @@ impl UserState for ClientState {
         sched.add_system(Self::update).build();
 
         /*
-        sched
-            .add_system(Self::interaction)
-            .query(
-                "Camera",
-                Query::new()
-                    .intersect::<Transform>(Access::Read)
-                    .intersect::<CameraComponent>(Access::Read),
-            )
-            .subscribe::<FrameTime>()
-            .subscribe::<VrUpdate>()
-            .build();
-        */
+           sched
+           .add_system(Self::interaction)
+           .query(
+           "Camera",
+           Query::new()
+           .intersect::<Transform>(Access::Read)
+           .intersect::<CameraComponent>(Access::Read),
+           )
+           .subscribe::<FrameTime>()
+           .subscribe::<VrUpdate>()
+           .build();
+           */
 
         sched.add_system(Self::update).build();
 
@@ -95,6 +96,8 @@ impl UserState for ClientState {
 
         let newton = NewtonConfig::default();
 
+        let mcmc = MonteCarloConfig::default();
+
         Self {
             show_debug: false,
             selected_field: Field::InterStrength,
@@ -110,6 +113,7 @@ impl UserState for ClientState {
             constrain_2d: false,
             pause: false,
             deepest: 0,
+            mcmc,
         }
     }
 }
@@ -163,16 +167,16 @@ fn config_ui(ui: &mut Ui, config: &mut SimConfig, selected_field: &mut Field) {
                     }
                     Field::InterMaxDist => ui.add(
                         DragValue::new(&mut behav.inter_max_dist)
-                            .clamp_range(0.0..=1.0)
-                            .speed(1e-2),
+                        .clamp_range(0.0..=1.0)
+                        .speed(1e-2),
                     ),
                     Field::DefaultRepulse => {
                         ui.add(DragValue::new(&mut behav.default_repulse).speed(1e-2))
                     }
                     Field::InterThreshold => ui.add(
                         DragValue::new(&mut behav.inter_threshold)
-                            .clamp_range(0.0..=1.0)
-                            .speed(1e-2),
+                        .clamp_range(0.0..=1.0)
+                        .speed(1e-2),
                     ),
                 };
             }
@@ -189,11 +193,11 @@ impl ClientState {
             config_ui(ui, &mut self.cfg, &mut self.selected_field);
 
             /*
-            ui.checkbox(&mut self.constrain_2d, "Constrain to 2D");
-            if self.constrain_2d {
-                project_to_2d(&mut self.state);
-            }
-            */
+               ui.checkbox(&mut self.constrain_2d, "Constrain to 2D");
+               if self.constrain_2d {
+               project_to_2d(&mut self.state);
+               }
+               */
 
             ui.checkbox(&mut self.show_debug, "Debug");
 
@@ -207,11 +211,11 @@ impl ClientState {
             reset_particles |= ui.button("Reset particles").clicked();
 
             /*
-            let deepest = self.state.accel.tiles().map(|(_, b)| b.len()).max().unwrap_or(0);
-            ui.label(format!("Deepest bucket: {}", deepest));
-            self.deepest = self.deepest.max(deepest);
-            ui.label(format!("Deepest bucket ever: {}", self.deepest));
-            */
+               let deepest = self.state.accel.tiles().map(|(_, b)| b.len()).max().unwrap_or(0);
+               ui.label(format!("Deepest bucket: {}", deepest));
+               self.deepest = self.deepest.max(deepest);
+               ui.label(format!("Deepest bucket ever: {}", self.deepest));
+               */
 
             ui.separator();
             ui.horizontal(|ui| {
@@ -224,7 +228,21 @@ impl ClientState {
                     ui.add(Slider::new(&mut self.newton.dt, 0.0..=1e-2));
                     ui.add(DragValue::new(&mut self.newton.damping).prefix("Damping: ").speed(1e-2));
                 }
-                Integrator::MonteCarlo => {}
+                Integrator::MonteCarlo => {
+                    ui.add(DragValue::new(&mut self.mcmc.substeps).prefix("Substeps: "));
+                    ui.add(
+                        DragValue::new(&mut self.mcmc.temperature)
+                        .prefix("Temp: ")
+                        .speed(1e-2),
+                    );
+                    ui.add(
+                        DragValue::new(&mut self.mcmc.walk_sigma)
+                        .prefix("Walk σ: ")
+                        .clamp_range(0.0..=f32::INFINITY)
+                        .speed(1e-3),
+                    );
+
+                }
             }
         });
 
@@ -237,41 +255,41 @@ impl ClientState {
     }
 
     /*
-    fn interaction(&mut self, io: &mut EngineIo, query: &mut QueryResult) {
-        let mut camera_transf = Transform::identity();
-        for entity in query.iter("Camera") {
-            camera_transf = query.read::<Transform>(entity);
-        }
+       fn interaction(&mut self, io: &mut EngineIo, query: &mut QueryResult) {
+       let mut camera_transf = Transform::identity();
+       for entity in query.iter("Camera") {
+       camera_transf = query.read::<Transform>(entity);
+       }
 
-        if let Some(VrUpdate {
-            left_controller,
-            right_controller,
-            ..
-        }) = io.inbox_first()
-        {
-            for (controller, last) in [
-                (left_controller, &mut self.last_left_pos),
-                (right_controller, &mut self.last_right_pos),
-            ] {
-                if let Some(aim) = controller.aim {
-                    let pos = aim.pos + camera_transf.pos - SIM_OFFSET;
+       if let Some(VrUpdate {
+       left_controller,
+       right_controller,
+       ..
+       }) = io.inbox_first()
+       {
+       for (controller, last) in [
+       (left_controller, &mut self.last_left_pos),
+       (right_controller, &mut self.last_right_pos),
+       ] {
+       if let Some(aim) = controller.aim {
+       let pos = aim.pos + camera_transf.pos - SIM_OFFSET;
 
-                    let diff = pos - *last;
-                    let mag = (diff.length() * 48.).powi(2);
+       let diff = pos - *last;
+       let mag = (diff.length() * 48.).powi(2);
 
-                    self.sim.move_neighbors(pos, diff.normalize() * mag);
-                    *last = pos;
-                }
+       self.sim.move_neighbors(pos, diff.normalize() * mag);
+     *last = pos;
+     }
 
-                if controller.events.contains(&ControllerEvent::Menu(
-                    cimvr_common::vr::ElementState::Released,
-                )) {
-                    self.sim = new_sim_state(io);
-                }
-            }
-        }
-    }
-    */
+     if controller.events.contains(&ControllerEvent::Menu(
+     cimvr_common::vr::ElementState::Released,
+     )) {
+     self.sim = new_sim_state(io);
+     }
+     }
+     }
+     }
+     */
 
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
         if !self.pause {
@@ -338,12 +356,12 @@ fn draw_particles(state: &SimState, cfg: &SimConfig) -> Mesh {
 }
 
 /*
-fn project_to_2d(state: &mut SimState) {
-    for p in state.particles_mut() {
-        p.pos.y = 0.;
-    }
-}
-*/
+   fn project_to_2d(state: &mut SimState) {
+   for p in state.particles_mut() {
+   p.pos.y = 0.;
+   }
+   }
+   */
 
 fn query_accel_buckets(query_accel: &QueryAccelerator) -> Mesh {
     let mut mesh = Mesh::new();
@@ -360,8 +378,8 @@ fn query_accel_buckets(query_accel: &QueryAccelerator) -> Mesh {
 fn add_cube(mesh: &mut Mesh, corner: Vec3, width: f32, color: [f32; 3]) {
     let mut vert = |offset: [f32; 3]| {
         mesh.push_vertex(Vertex::new(
-            (corner + Vec3::from(offset) * width).into(),
-            color,
+                (corner + Vec3::from(offset) * width).into(),
+                color,
         ))
     };
 
