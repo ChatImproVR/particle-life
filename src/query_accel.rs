@@ -71,7 +71,10 @@ impl QueryAccelerator {
         prev_bins.remove(prev_idx);
 
         // Add this point to its new cell
-        self.cells.entry(quantize(current, self.radius)).or_default().push(idx);
+        self.cells
+            .entry(quantize(current, self.radius))
+            .or_default()
+            .push(idx);
     }
 
     pub fn tiles(&self) -> impl Iterator<Item = (&[i32; 3], &Vec<usize>)> {

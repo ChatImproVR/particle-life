@@ -1,7 +1,7 @@
 use cimvr_common::glam::Vec3;
 
-use crate::{SimState, SimConfig};
 use crate::query_accel::QueryAccelerator;
+use crate::{SimConfig, SimState};
 
 pub struct NewtonConfig {
     /// Time step

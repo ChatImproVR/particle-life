@@ -2,9 +2,9 @@ use cimvr_common::glam::Vec3;
 use cimvr_engine_interface::pcg::Pcg;
 use query_accel::QueryAccelerator;
 
-mod newton;
-mod mcmc;
 mod client;
+mod mcmc;
+mod newton;
 mod query_accel;
 use rand::prelude::*;
 
@@ -163,19 +163,18 @@ impl SimConfig {
         let mut rng = rng();
         let n = rng.gen_range(2..=5);
 
-    let colors: Vec<[f32; 3]> = (0..n).map(|_| hsv_to_rgb(rng.gen_range(0.0..=360.0), 1., 1.)).collect();
-    let behaviours = (0..n * n)
-        .map(|_| {
-            let mut behav = Behaviour::default();
-            behav.inter_strength = rng.gen_range(-15.0..=15.0);
-            behav
-        })
-        .collect();
+        let colors: Vec<[f32; 3]> = (0..n)
+            .map(|_| hsv_to_rgb(rng.gen_range(0.0..=360.0), 1., 1.))
+            .collect();
+        let behaviours = (0..n * n)
+            .map(|_| {
+                let mut behav = Behaviour::default();
+                behav.inter_strength = rng.gen_range(-15.0..=15.0);
+                behav
+            })
+            .collect();
 
-        Self {
-            behaviours,
-            colors,
-        }
+        Self { behaviours, colors }
     }
 }
 

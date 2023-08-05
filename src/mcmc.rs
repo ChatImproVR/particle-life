@@ -1,11 +1,8 @@
-use crate::{query_accel::QueryAccelerator, rng, SimConfig, SimState};
+use crate::{rng, SimConfig, SimState};
 use cimvr_common::{
-    glam::{Vec2, Vec3},
-    render::{Mesh, MeshHandle, Primitive, Render, UploadMesh, Vertex},
-    ui::{egui::DragValue, GuiInputMessage, GuiTab},
-    Transform,
+    glam::{Vec3},
 };
-use cimvr_engine_interface::{make_app_state, pcg::Pcg, pkg_namespace, prelude::*};
+use cimvr_engine_interface::{prelude::*};
 use rand::prelude::*;
 use rand_distr::Normal;
 
