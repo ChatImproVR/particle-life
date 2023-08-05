@@ -29,6 +29,8 @@ pub fn mcmc_step(state: &mut SimState, cfg: &SimConfig, mcmc: &MonteCarloConfig)
         let old_energy = energy_due_to(idx, original, state, cfg);
         let new_energy = energy_due_to(idx, candidate, state, cfg);
         let delta_e = new_energy - old_energy;
+        
+        let delta_e = delta_e + original.distance(candidate);
 
         // Decide whether to accept the change
         let probability = (-delta_e / mcmc.temperature).exp();

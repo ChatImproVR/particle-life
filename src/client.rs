@@ -191,12 +191,10 @@ impl ClientState {
         self.ui.show(io, |ui| {
             config_ui(ui, &mut self.cfg, &mut self.selected_field);
 
-            /*
             ui.checkbox(&mut self.constrain_2d, "Constrain to 2D");
             if self.constrain_2d {
-            project_to_2d(&mut self.state);
+                project_to_2d(&mut self.state);
             }
-            */
 
             ui.checkbox(&mut self.show_debug, "Debug");
 
@@ -306,7 +304,8 @@ impl ClientState {
     */
 
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
-        self.state.accel = QueryAccelerator::new(&self.state.pos, self.cfg.max_interaction_radius());
+        self.state.accel =
+            QueryAccelerator::new(&self.state.pos, self.cfg.max_interaction_radius());
 
         if !self.pause {
             match self.integrator {
@@ -375,13 +374,11 @@ fn draw_particles(state: &SimState, cfg: &SimConfig) -> Mesh {
     Mesh { vertices, indices }
 }
 
-/*
 fn project_to_2d(state: &mut SimState) {
-for p in state.particles_mut() {
-p.pos.y = 0.;
+    for p in &mut state.pos {
+        p.y = 0.;
+    }
 }
-}
-*/
 
 fn query_accel_buckets(query_accel: &QueryAccelerator) -> Mesh {
     let mut mesh = Mesh::new();
