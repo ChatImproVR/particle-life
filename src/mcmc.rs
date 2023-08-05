@@ -1,8 +1,6 @@
 use crate::{rng, SimConfig, SimState};
-use cimvr_common::{
-    glam::{Vec3},
-};
-use cimvr_engine_interface::{prelude::*};
+use cimvr_common::glam::Vec3;
+use cimvr_engine_interface::prelude::*;
 use rand::prelude::*;
 use rand_distr::Normal;
 
@@ -13,29 +11,32 @@ pub struct MonteCarloConfig {
 }
 
 pub fn mcmc_step(state: &mut SimState, cfg: &SimConfig, mcmc: &MonteCarloConfig) {
-    let ref mut rng = rng();
+    for _ in 0..mcmc.substeps {
+        let ref mut rng = rng();
 
-    // Pick a particle
-    let idx = rng.gen_range(0..state.pos.len());
+        // Pick a particle
+        let idx = rng.gen_range(0..state.pos.len());
 
-    // Perterb it
-    let original = state.pos[idx];
-    let mut candidate = original;
-    let normal = Normal::new(0.0, mcmc.walk_sigma).unwrap();
-    candidate.x += normal.sample(rng);
-    candidate.y += normal.sample(rng);
+        // Perterb it
+        let original = state.pos[idx];
+        let mut candidate = original;
+        let normal = Normal::new(0.0, mcmc.walk_sigma).unwrap();
+        candidate.x += normal.sample(rng);
+        candidate.y += normal.sample(rng);
+        candidate.z += normal.sample(rng);
 
-    // Calculate the candidate change in energy
-    let old_energy = energy_due_to(idx, original, state, cfg);
-    let new_energy = energy_due_to(idx, candidate, state, cfg);
-    let delta_e = new_energy - old_energy;
+        // Calculate the candidate change in energy
+        let old_energy = energy_due_to(idx, original, state, cfg);
+        let new_energy = energy_due_to(idx, candidate, state, cfg);
+        let delta_e = new_energy - old_energy;
 
-    // Decide whether to accept the change
-    let probability = (-delta_e / mcmc.temperature).exp();
-    //let probability = (-delta_e).exp();
-    if probability > rng.gen_range(0.0..=1.0) {
-        state.pos[idx] = candidate;
-        state.accel.replace_point(idx, original, candidate);
+        // Decide whether to accept the change
+        let probability = (-delta_e / mcmc.temperature).exp();
+        //let probability = (-delta_e).exp();
+        if probability > rng.gen_range(0.0..=1.0) {
+            state.pos[idx] = candidate;
+            state.accel.replace_point(idx, original, candidate);
+        }
     }
 }
 

@@ -7,9 +7,7 @@ use cimvr_common::{
     },
     Transform,
 };
-use cimvr_engine_interface::{
-    make_app_state, pkg_namespace, prelude::*, println,
-};
+use cimvr_engine_interface::{make_app_state, pkg_namespace, prelude::*, println};
 
 use crate::{
     mcmc::{mcmc_step, MonteCarloConfig},
@@ -221,8 +219,15 @@ impl ClientState {
             ui.horizontal(|ui| {
                 ui.label("Integrator: ");
                 ui.selectable_value(&mut self.integrator, Integrator::Newton, "Newton");
-                ui.selectable_value(&mut self.integrator, Integrator::MonteCarlo, "Monte Carlo");
+                if ui
+                    .selectable_value(&mut self.integrator, Integrator::MonteCarlo, "Monte Carlo")
+                    .clicked()
+                {
+                    self.state.accel =
+                        QueryAccelerator::new(&self.state.pos, self.cfg.max_interaction_radius());
+                }
             });
+
             match self.integrator {
                 Integrator::Newton => {
                     ui.add(Slider::new(&mut self.newton.dt, 0.0..=1e-2));
