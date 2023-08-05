@@ -74,11 +74,13 @@ impl QueryAccelerator {
         self.cells.entry(quantize(current, self.radius)).or_default().push(idx);
     }
 
-    /*
     pub fn tiles(&self) -> impl Iterator<Item = (&[i32; 3], &Vec<usize>)> {
         self.cells.iter()
     }
-    */
+
+    pub fn radius(&self) -> f32 {
+        self.radius
+    }
 }
 
 fn add(mut a: [i32; 3], b: [i32; 3]) -> [i32; 3] {
