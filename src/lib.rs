@@ -11,9 +11,10 @@ use cimvr_common::{
 use cimvr_engine_interface::{
     dbg, make_app_state, pcg::Pcg, pkg_namespace, prelude::*, println, FrameTime,
 };
-mod sim;
+mod newton;
+mod mcmc;
 use query_accel::QueryAccelerator;
-use sim::*;
+use newton::*;
 mod query_accel;
 
 const SIM_OFFSET: Vec3 = Vec3::new(0., 1., 0.);
