@@ -283,7 +283,7 @@ impl ClientState {
                     DragValue::new(&mut self.mcmc.walk_sigma)
                         .prefix("Walk σ: ")
                         .clamp_range(0.0..=f32::INFINITY)
-                        .speed(1e-3),
+                        .speed(1e-5),
                 );
             }
         });
