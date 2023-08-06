@@ -29,7 +29,7 @@ pub fn mcmc_step(
 
         let mut sigma = mcmc.walk_sigma;
         if pseudo_newtonian {
-            sigma *= f.length();
+            sigma *= f.length() * mcmc.walk_sigma;
             sigma = sigma.min(mcmc.walk_sigma);
         }
 
