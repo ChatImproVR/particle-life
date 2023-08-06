@@ -21,7 +21,12 @@ pub fn mcmc_step(state: &mut SimState, cfg: &SimConfig, mcmc: &MonteCarloConfig)
         let original = state.pos[idx];
         let mut candidate = original;
         let f = total_force(idx, state, cfg);
-        let normal = Normal::new(0.0, mcmc.walk_sigma * f.length()).unwrap();
+
+        let sigma = mcmc.walk_sigma * f.length();
+        let sigma = sigma.min(mcmc.walk_sigma);
+        cimvr_engine_interface::dbg!(sigma);
+
+        let normal = Normal::new(0.0, sigma).unwrap();
         candidate.x += normal.sample(rng);
         candidate.y += normal.sample(rng);
         candidate.z += normal.sample(rng);
