@@ -159,14 +159,13 @@ impl SimConfig {
         self.behaviours[idx]
     }
 
-    fn random() -> Self {
+    fn random(rule_count: usize) -> Self {
         let mut rng = rng();
-        let n = rng.gen_range(2..=5);
 
-        let colors: Vec<[f32; 3]> = (0..n)
+        let colors: Vec<[f32; 3]> = (0..rule_count)
             .map(|_| hsv_to_rgb(rng.gen_range(0.0..=360.0), 1., 1.))
             .collect();
-        let behaviours = (0..n * n)
+        let behaviours = (0..rule_count.pow(2))
             .map(|_| {
                 let mut behav = Behaviour::default();
                 behav.inter_strength = rng.gen_range(-15.0..=15.0);

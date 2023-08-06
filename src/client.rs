@@ -13,7 +13,7 @@ use crate::{
     mcmc::{mcmc_step, MonteCarloConfig},
     newton::{newton_step, NewtonConfig},
     query_accel::QueryAccelerator,
-    SimConfig, SimState,
+    SimConfig, SimState, hsv_to_rgb,
 };
 
 const SIM_OFFSET: Vec3 = Vec3::new(0., 1., 0.);
@@ -38,7 +38,8 @@ struct ClientState {
     pause: bool,
     deepest: usize,
 
-    n: usize,
+    particle_count: usize,
+    rule_count: usize,
     cfg: SimConfig,
 
     integrator: Integrator,
@@ -89,7 +90,9 @@ impl UserState for ClientState {
 
         let n = 5_000;
 
-        let cfg = SimConfig::random();
+        let rule_count = 3;
+
+        let cfg = SimConfig::random(rule_count);
 
         let state = SimState::new_uniform_cube(&cfg, n, 1.);
 
@@ -101,10 +104,11 @@ impl UserState for ClientState {
             show_debug: false,
             selected_field: Field::InterStrength,
             newton,
-            n,
+            particle_count: n,
             cfg,
             ui,
             state,
+            rule_count,
             integrator: Integrator::Newton,
             time: 0.,
             last_left_pos: Vec3::ZERO,
@@ -189,7 +193,13 @@ impl ClientState {
         let mut reset_particles = false;
 
         self.ui.show(io, |ui| {
+            if ui.button("Randomize behaviours").clicked() {
+                self.cfg = SimConfig::random(self.rule_count);
+                reset_particles = true;
+            }
+
             config_ui(ui, &mut self.cfg, &mut self.selected_field);
+            ui.separator();
 
             ui.checkbox(&mut self.constrain_2d, "Constrain to 2D");
             if self.constrain_2d {
@@ -200,10 +210,8 @@ impl ClientState {
 
             ui.checkbox(&mut self.pause, "Pause");
 
-            if ui.button("Randomize").clicked() {
-                self.cfg = SimConfig::random();
-                reset_particles = true;
-            }
+            ui.add(DragValue::new(&mut self.particle_count).prefix("# of particles: ").clamp_range(1..=usize::MAX));
+            ui.add(DragValue::new(&mut self.rule_count).prefix("# of types: ").clamp_range(1..=usize::MAX));
 
             reset_particles |= ui.button("Reset particles").clicked();
 
@@ -262,7 +270,7 @@ impl ClientState {
         //dbg!(debug_upload_mesh.mesh.vertices.len());
 
         if reset_particles {
-            self.state = SimState::new_uniform_cube(&self.cfg, self.n, 1.);
+            self.state = SimState::new_uniform_cube(&self.cfg, self.particle_count, 1.);
         }
     }
 
@@ -382,10 +390,12 @@ fn project_to_2d(state: &mut SimState) {
 
 fn query_accel_buckets(query_accel: &QueryAccelerator) -> Mesh {
     let mut mesh = Mesh::new();
-    let color = [0.1; 3];
+    //let color = [0.1; 3];
     let radius = query_accel.radius();
-    for (index, _indices) in query_accel.tiles() {
+    for (index, indices) in query_accel.tiles() {
         let corner = Vec3::from(index.map(|f| f as f32 * radius));
+        let hue = (-(indices.len() as f32)).exp();
+        let color = hsv_to_rgb(hue * 360., 1., 1.);
         add_cube(&mut mesh, corner, radius, color);
     }
 
