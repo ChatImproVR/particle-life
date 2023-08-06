@@ -1,4 +1,4 @@
-use crate::{rng, SimConfig, SimState};
+use crate::{rng, SimConfig, SimState, newton::total_force};
 use cimvr_common::glam::Vec3;
 use cimvr_engine_interface::prelude::*;
 use rand::prelude::*;
@@ -20,7 +20,8 @@ pub fn mcmc_step(state: &mut SimState, cfg: &SimConfig, mcmc: &MonteCarloConfig)
         // Perterb it
         let original = state.pos[idx];
         let mut candidate = original;
-        let normal = Normal::new(0.0, mcmc.walk_sigma).unwrap();
+        let f = total_force(idx, state, cfg);
+        let normal = Normal::new(0.0, mcmc.walk_sigma * f.length()).unwrap();
         candidate.x += normal.sample(rng);
         candidate.y += normal.sample(rng);
         candidate.z += normal.sample(rng);
@@ -29,8 +30,6 @@ pub fn mcmc_step(state: &mut SimState, cfg: &SimConfig, mcmc: &MonteCarloConfig)
         let old_energy = energy_due_to(idx, original, state, cfg);
         let new_energy = energy_due_to(idx, candidate, state, cfg);
         let delta_e = new_energy - old_energy;
-        
-        let delta_e = delta_e + original.distance(candidate);
 
         // Decide whether to accept the change
         let probability = (-delta_e / mcmc.temperature).exp();
@@ -61,7 +60,7 @@ impl Default for MonteCarloConfig {
     fn default() -> Self {
         Self {
             temperature: 0.001,
-            walk_sigma: 0.01,
+            walk_sigma: 0.001,
             substeps: 1500,
         }
     }
