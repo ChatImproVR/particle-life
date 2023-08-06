@@ -1,4 +1,4 @@
-use crate::{rng, SimConfig, SimState, newton::total_force};
+use crate::{newton::total_force, rng, SimConfig, SimState};
 use cimvr_common::glam::Vec3;
 use cimvr_engine_interface::prelude::*;
 use rand::prelude::*;
@@ -10,7 +10,12 @@ pub struct MonteCarloConfig {
     pub substeps: usize,
 }
 
-pub fn mcmc_step(state: &mut SimState, cfg: &SimConfig, mcmc: &MonteCarloConfig) {
+pub fn mcmc_step(
+    state: &mut SimState,
+    cfg: &SimConfig,
+    mcmc: &MonteCarloConfig,
+    pseudo_newtonian: bool,
+) {
     for _ in 0..mcmc.substeps {
         let ref mut rng = rng();
 
@@ -22,14 +27,20 @@ pub fn mcmc_step(state: &mut SimState, cfg: &SimConfig, mcmc: &MonteCarloConfig)
         let mut candidate = original;
         let f = total_force(idx, state, cfg);
 
-        let sigma = mcmc.walk_sigma * f.length();
-        let sigma = sigma.min(mcmc.walk_sigma);
-        cimvr_engine_interface::dbg!(sigma);
+        let mut sigma = mcmc.walk_sigma;
+        if pseudo_newtonian {
+            sigma *= f.length();
+            sigma = sigma.min(mcmc.walk_sigma);
+        }
 
         let normal = Normal::new(0.0, sigma).unwrap();
         candidate.x += normal.sample(rng);
         candidate.y += normal.sample(rng);
         candidate.z += normal.sample(rng);
+
+        if pseudo_newtonian {
+            candidate += f * mcmc.walk_sigma;
+        }
 
         // Calculate the candidate change in energy
         let old_energy = energy_due_to(idx, original, state, cfg);

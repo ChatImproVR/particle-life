@@ -24,6 +24,7 @@ enum Integrator {
     Newton,
     MonteCarlo,
     Mixed,
+    PseudoNewtonian,
 }
 
 // All state associated with client-side behaviour
@@ -251,6 +252,11 @@ impl ClientState {
                     .selectable_value(&mut self.integrator, Integrator::Mixed, "Mixed")
                     .clicked();
 
+                reset_accel |= ui
+                    .selectable_value(&mut self.integrator, Integrator::PseudoNewtonian, "Pseudo Newtonian")
+                    .clicked();
+
+
                 if reset_accel {
                     self.state.accel =
                         QueryAccelerator::new(&self.state.pos, self.cfg.max_interaction_radius());
@@ -266,7 +272,7 @@ impl ClientState {
                 );
             }
 
-            if matches!(self.integrator, Integrator::MonteCarlo | Integrator::Mixed) {
+            if matches!(self.integrator, Integrator::MonteCarlo | Integrator::PseudoNewtonian | Integrator::Mixed) {
                 ui.add(DragValue::new(&mut self.mcmc.substeps).prefix("Substeps: "));
                 ui.add(
                     DragValue::new(&mut self.mcmc.temperature)
@@ -334,9 +340,10 @@ impl ClientState {
         if !self.pause {
             match self.integrator {
                 Integrator::Newton => newton_step(&mut self.state, &self.cfg, &self.newton),
-                Integrator::MonteCarlo => mcmc_step(&mut self.state, &self.cfg, &self.mcmc),
+                Integrator::MonteCarlo => mcmc_step(&mut self.state, &self.cfg, &self.mcmc, false),
+                Integrator::PseudoNewtonian => mcmc_step(&mut self.state, &self.cfg, &self.mcmc, true),
                 Integrator::Mixed => {
-                    mcmc_step(&mut self.state, &self.cfg, &self.mcmc);
+                    mcmc_step(&mut self.state, &self.cfg, &self.mcmc, false);
                     newton_step(&mut self.state, &self.cfg, &self.newton);
                 }
             }
