@@ -10,10 +10,11 @@ use cimvr_common::{
 use cimvr_engine_interface::{make_app_state, pkg_namespace, prelude::*, println};
 
 use crate::{
+    hsv_to_rgb,
     mcmc::{mcmc_step, MonteCarloConfig},
     newton::{newton_step, NewtonConfig},
     query_accel::QueryAccelerator,
-    SimConfig, SimState, hsv_to_rgb,
+    SimConfig, SimState,
 };
 
 const SIM_OFFSET: Vec3 = Vec3::new(0., 1., 0.);
@@ -154,7 +155,8 @@ fn config_ui(ui: &mut Ui, config: &mut SimConfig, selected_field: &mut Field) {
     let len = config.colors.len();
     Grid::new(pkg_namespace!("Particle Life Grid")).show(ui, |ui| {
         // Top row
-        ui.label("Life");
+        //ui.label("Life");
+        ui.label("");
         for color in &mut config.colors {
             color_edit_button_rgb(ui, color);
         }
@@ -193,13 +195,22 @@ impl ClientState {
         let mut reset_particles = false;
 
         self.ui.show(io, |ui| {
-            if ui.button("Randomize behaviours").clicked() {
-                self.cfg = SimConfig::random(self.rule_count);
-                reset_particles = true;
-            }
-
+            ui.strong("Rules");
             config_ui(ui, &mut self.cfg, &mut self.selected_field);
+            ui.horizontal(|ui| {
+                if ui.button("Randomize behaviours").clicked() {
+                    self.cfg = SimConfig::random(self.rule_count);
+                    reset_particles = true;
+                }
+                ui.add(
+                    DragValue::new(&mut self.rule_count)
+                        .prefix("# of types: ")
+                        .clamp_range(1..=usize::MAX),
+                );
+            });
+
             ui.separator();
+            ui.strong("Controls");
 
             ui.checkbox(&mut self.constrain_2d, "Constrain to 2D");
             if self.constrain_2d {
@@ -210,10 +221,14 @@ impl ClientState {
 
             ui.checkbox(&mut self.pause, "Pause");
 
-            ui.add(DragValue::new(&mut self.particle_count).prefix("# of particles: ").clamp_range(1..=usize::MAX));
-            ui.add(DragValue::new(&mut self.rule_count).prefix("# of types: ").clamp_range(1..=usize::MAX));
-
-            reset_particles |= ui.button("Reset particles").clicked();
+            ui.horizontal(|ui| {
+                reset_particles |= ui.button("Reset particles").clicked();
+                ui.add(
+                    DragValue::new(&mut self.particle_count)
+                        .prefix("# of particles: ")
+                        .clamp_range(1..=usize::MAX),
+                );
+            });
 
             /*
             let deepest = self.state.accel.tiles().map(|(_, b)| b.len()).max().unwrap_or(0);
@@ -223,6 +238,7 @@ impl ClientState {
             */
 
             ui.separator();
+            ui.strong("Integration");
             ui.horizontal(|ui| {
                 ui.label("Integrator: ");
                 ui.selectable_value(&mut self.integrator, Integrator::Newton, "Newton");

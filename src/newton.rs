@@ -56,7 +56,7 @@ impl Default for NewtonConfig {
     fn default() -> Self {
         Self {
             damping: 0.1,
-            dt: 1e-3,
+            dt: 2e-3,
         }
     }
 }
