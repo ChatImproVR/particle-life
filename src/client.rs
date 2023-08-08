@@ -41,6 +41,7 @@ struct ClientState {
     deepest: usize,
 
     particle_count: usize,
+    density: f32,
     rule_count: usize,
     cfg: SimConfig,
 
@@ -119,6 +120,7 @@ impl UserState for ClientState {
             pause: false,
             deepest: 0,
             mcmc,
+            density: 1000.0
         }
     }
 }
@@ -229,6 +231,13 @@ impl ClientState {
                         .prefix("# of particles: ")
                         .clamp_range(1..=usize::MAX),
                 );
+                ui.add(
+                    DragValue::new(&mut self.density)
+                        .prefix("Density: ")
+                        .suffix(" / unit^3")
+                        .clamp_range(0.0..=f32::INFINITY)
+                        .speed(1e-1)
+                );
             });
 
             /*
@@ -253,9 +262,12 @@ impl ClientState {
                     .clicked();
 
                 reset_accel |= ui
-                    .selectable_value(&mut self.integrator, Integrator::PseudoNewtonian, "Pseudo Newtonian")
+                    .selectable_value(
+                        &mut self.integrator,
+                        Integrator::PseudoNewtonian,
+                        "Pseudo Newtonian",
+                    )
                     .clicked();
-
 
                 if reset_accel {
                     self.state.accel =
@@ -272,7 +284,10 @@ impl ClientState {
                 );
             }
 
-            if matches!(self.integrator, Integrator::MonteCarlo | Integrator::PseudoNewtonian | Integrator::Mixed) {
+            if matches!(
+                self.integrator,
+                Integrator::MonteCarlo | Integrator::PseudoNewtonian | Integrator::Mixed
+            ) {
                 ui.add(DragValue::new(&mut self.mcmc.substeps).prefix("Substeps: "));
                 ui.add(
                     DragValue::new(&mut self.mcmc.temperature)
@@ -292,7 +307,11 @@ impl ClientState {
         //dbg!(debug_upload_mesh.mesh.vertices.len());
 
         if reset_particles {
-            self.state = SimState::new_uniform_cube(&self.cfg, self.particle_count, 1.);
+            self.state = SimState::new_uniform_cube(
+                &self.cfg,
+                self.particle_count,
+                (self.particle_count as f32 / self.density).cbrt()/2.,
+            );
         }
     }
 
@@ -341,7 +360,9 @@ impl ClientState {
             match self.integrator {
                 Integrator::Newton => newton_step(&mut self.state, &self.cfg, &self.newton),
                 Integrator::MonteCarlo => mcmc_step(&mut self.state, &self.cfg, &self.mcmc, false),
-                Integrator::PseudoNewtonian => mcmc_step(&mut self.state, &self.cfg, &self.mcmc, true),
+                Integrator::PseudoNewtonian => {
+                    mcmc_step(&mut self.state, &self.cfg, &self.mcmc, true)
+                }
                 Integrator::Mixed => {
                     mcmc_step(&mut self.state, &self.cfg, &self.mcmc, false);
                     newton_step(&mut self.state, &self.cfg, &self.newton);
