@@ -156,7 +156,7 @@ fn calculate_delta_time(
         }
     }
 
-    min_dt.unwrap_or(newton.min_dt()).max(newton.min_dt())
+    newton.sub_dt * min_dt.unwrap_or(newton.min_dt()).max(newton.min_dt())
 }
 
 impl Default for NewtonVariableConfig {
