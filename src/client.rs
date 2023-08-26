@@ -12,7 +12,7 @@ use cimvr_engine_interface::{make_app_state, pkg_namespace, prelude::*, println}
 use crate::{
     hsv_to_rgb,
     mcmc::{mcmc_step, MonteCarloConfig},
-    newton::{newton_step, NewtonConfig},
+    newton::{newton_step, NewtonConfig, newton_step_variable_dt, NewtonVariableConfig},
     query_accel::QueryAccelerator,
     SimConfig, SimState,
 };
@@ -21,6 +21,7 @@ const SIM_OFFSET: Vec3 = Vec3::new(0., 1., 0.);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Integrator {
+    NewtonVariableDt,
     Newton,
     MonteCarlo,
     Mixed,
@@ -48,6 +49,7 @@ struct ClientState {
     integrator: Integrator,
     newton: NewtonConfig,
     mcmc: MonteCarloConfig,
+    newton_var: NewtonVariableConfig,
 }
 
 const SIM_RENDER_ID: MeshHandle = MeshHandle::new(pkg_namespace!("Simulation"));
@@ -112,7 +114,7 @@ impl UserState for ClientState {
             ui,
             state,
             rule_count,
-            integrator: Integrator::Newton,
+            integrator: Integrator::NewtonVariableDt,
             time: 0.,
             last_left_pos: Vec3::ZERO,
             last_right_pos: Vec3::ZERO,
@@ -120,7 +122,8 @@ impl UserState for ClientState {
             pause: false,
             deepest: 0,
             mcmc,
-            density: 1000.0
+            density: 1000.0,
+            newton_var: Default::default(),
         }
     }
 }
@@ -251,6 +254,7 @@ impl ClientState {
             ui.strong("Integration");
             ui.horizontal(|ui| {
                 ui.label("Integrator: ");
+                ui.selectable_value(&mut self.integrator, Integrator::NewtonVariableDt, "Newton (variable dt)");
                 ui.selectable_value(&mut self.integrator, Integrator::Newton, "Newton");
                 let mut reset_accel = false;
                 reset_accel |= ui
@@ -362,6 +366,9 @@ impl ClientState {
                 Integrator::MonteCarlo => mcmc_step(&mut self.state, &self.cfg, &self.mcmc, false),
                 Integrator::PseudoNewtonian => {
                     mcmc_step(&mut self.state, &self.cfg, &self.mcmc, true)
+                }
+                Integrator::NewtonVariableDt => {
+                    newton_step_variable_dt(&mut self.state, &self.cfg, &self.newton_var)
                 }
                 Integrator::Mixed => {
                     mcmc_step(&mut self.state, &self.cfg, &self.mcmc, false);
