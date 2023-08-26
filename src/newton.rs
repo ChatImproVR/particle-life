@@ -103,9 +103,6 @@ pub fn newton_step_variable_dt(
             + state.vel[idx]* dt
             + (state.accel[idx]+ new_accel) * dt / 2.;
 
-        // Dampen velocity
-        state.vel[idx] = state.vel[idx] * (1. - newton.damping);
-
         state.accel[idx] = new_accel;
 
         time[idx] = global_time;
@@ -115,6 +112,11 @@ pub fn newton_step_variable_dt(
         if global_time < newton.dt {
             pq.push(TimeIndex(global_time + next_dt, idx));
         }
+    }
+
+    for vel in &mut state.vel {
+        // Dampen velocity
+        *vel *= 1. - newton.damping;
     }
 }
 
