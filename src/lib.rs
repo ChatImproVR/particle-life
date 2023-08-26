@@ -14,10 +14,12 @@ pub struct SimState {
     pub pos: Vec<Vec3>,
     /// Velocities. May or may not be used, depending on the integrator
     pub vel: Vec<Vec3>,
+    /// Acceleration
+    pub accel: Vec<Vec3>,
     /// Particle types, corresponding to colors
     pub colors: Vec<u8>,
     /// Query accelerator, tracking particle positions
-    pub accel: QueryAccelerator,
+    pub query: QueryAccelerator,
 }
 
 /// Display colors and physical behaviour coefficients
@@ -100,14 +102,16 @@ impl SimState {
             .collect();
 
         let vel = vec![Vec3::ZERO; n];
+        let accel = vec![Vec3::ZERO; n];
 
-        let accel = QueryAccelerator::new(&pos, cfg.max_interaction_radius());
+        let query = QueryAccelerator::new(&pos, cfg.max_interaction_radius());
 
         Self {
             pos,
             vel,
             colors: types,
             accel,
+            query,
         }
     }
 }

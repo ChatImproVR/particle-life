@@ -270,7 +270,7 @@ impl ClientState {
                     .clicked();
 
                 if reset_accel {
-                    self.state.accel =
+                    self.state.query =
                         QueryAccelerator::new(&self.state.pos, self.cfg.max_interaction_radius());
                 }
             });
@@ -353,7 +353,7 @@ impl ClientState {
     */
 
     fn update(&mut self, io: &mut EngineIo, _query: &mut QueryResult) {
-        self.state.accel =
+        self.state.query =
             QueryAccelerator::new(&self.state.pos, self.cfg.max_interaction_radius());
 
         if !self.pause {
@@ -382,7 +382,7 @@ impl ClientState {
         };
         if self.show_debug {
             debug_upload_mesh = UploadMesh {
-                mesh: query_accel_buckets(&self.state.accel),
+                mesh: query_accel_buckets(&self.state.query),
                 id: DEBUG_RENDER_ID,
             };
         }

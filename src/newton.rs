@@ -14,7 +14,7 @@ pub struct NewtonConfig {
 pub fn total_force(i: usize, state: &SimState, cfg: &SimConfig) -> Vec3 {
     let mut f = Vec3::ZERO;
 
-    for neighbor in state.accel.query_neighbors(&state.pos, i, state.pos[i]) {
+    for neighbor in state.query.query_neighbors(&state.pos, i, state.pos[i]) {
         let a = state.pos[i];
         let b = state.pos[neighbor];
 

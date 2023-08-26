@@ -51,7 +51,7 @@ pub fn mcmc_step(
         let probability = (-delta_e / mcmc.temperature).exp();
         //let probability = (-delta_e).exp();
         if probability > rng.gen_range(0.0..=1.0) {
-            state.accel.replace_point(idx, original, candidate);
+            state.query.replace_point(idx, original, candidate);
             state.pos[idx] = candidate;
         }
     }
@@ -62,7 +62,7 @@ pub fn energy_due_to(idx: usize, pos: Vec3, state: &SimState, cfg: &SimConfig) -
 
     let my_color = state.colors[idx];
 
-    for neighbor in state.accel.query_neighbors(&state.pos, idx, pos) {
+    for neighbor in state.query.query_neighbors(&state.pos, idx, pos) {
         let distance = state.pos[neighbor].distance(pos);
         let behav = cfg.get_behaviour(my_color, state.colors[neighbor]);
 
