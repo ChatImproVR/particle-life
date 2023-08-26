@@ -280,7 +280,7 @@ impl ClientState {
             });
 
             if self.integrator == Integrator::NewtonVariableDt {
-                ui.add(DragValue::new(&mut self.newton_var.dt).speed(1e-2).prefix("Time step: "));
+                ui.add(DragValue::new(&mut self.newton_var.dt).speed(1e-4).prefix("Time step: "));
                 ui.add(DragValue::new(&mut self.newton_var.sub_dt).speed(1e-2).prefix("Substep adjust: "));
                 ui.add(DragValue::new(&mut self.newton_var.max_steps).prefix("Max substeps: "));
                 ui.add(
