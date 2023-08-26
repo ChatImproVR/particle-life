@@ -1,3 +1,5 @@
+use std::collections::BinaryHeap;
+
 use cimvr_common::glam::Vec3;
 
 use crate::query_accel::QueryAccelerator;
@@ -80,17 +82,36 @@ pub fn newton_step_variable_dt(
     let len = state.pos.len();
 
     let mut time = vec![0.0; len];
+    let mut pq: BinaryHeap<TimeIndex> = (0..state.pos.len())
+        .map(|i| TimeIndex(calculate_delta_time(state, &time, i, 0.0, newton), i))
+        .collect();
 
-    for i in 0..len {
-        let total_accel = total_force(i, state, cfg);
+    while let Some(TimeIndex(next_time, idx)) = pq.pop() {
+        let global_time = next_time.min(newton.dt);
+        let dt = global_time - time[idx];
 
-        let vel = state.vel[i] + total_accel * newton.dt;
+        let new_accel = total_force_extrapolate(idx, state, cfg, &time, global_time);
+
+        state.pos[idx]= state.pos[idx]
+            + state.vel[idx]* dt
+            + state.accel[idx]* dt.powi(2) / 2.;
+
+        state.vel[idx]= state.vel[idx]
+            + state.vel[idx]* dt
+            + (state.accel[idx]+ new_accel) * dt / 2.;
 
         // Dampen velocity
-        let vel = vel * (1. - newton.damping);
+        state.vel[idx] = state.vel[idx] * (1. - newton.damping);
 
-        state.vel[i] = vel;
-        state.pos[i] += vel * newton.dt;
+        state.accel[idx] = new_accel;
+
+        time[idx] = global_time;
+
+        let next_dt = calculate_delta_time(state, &time, idx, global_time, newton);
+
+        if global_time < newton.dt {
+            pq.push(TimeIndex(global_time + next_dt, idx));
+        }
     }
 }
 
@@ -149,3 +170,59 @@ impl NewtonVariableConfig {
         self.dt / self.max_steps as f32
     }
 }
+
+#[derive(Clone, Copy)]
+struct TimeIndex(f32, usize);
+
+impl PartialOrd for TimeIndex {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let TimeIndex(other_dt, _) = other;
+        let TimeIndex(self_dt, _) = self;
+        other_dt.partial_cmp(self_dt)
+    }
+}
+
+impl Ord for TimeIndex {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(&other)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    }
+}
+
+impl PartialEq for TimeIndex {
+    fn eq(&self, other: &Self) -> bool {
+        let TimeIndex(_, other_idx) = other;
+        let TimeIndex(_, self_idx) = self;
+        self_idx == other_idx
+    }
+}
+
+impl Eq for TimeIndex {}
+
+/// Calculates total force, assuming unit mass (m = 1)
+pub fn total_force_extrapolate(i: usize, state: &SimState, cfg: &SimConfig, time: &[f32], global_time: f32) -> Vec3 {
+    let mut f = Vec3::ZERO;
+
+    for neighbor in state.query.query_neighbors(&state.pos, i, state.pos[i]) {
+        let a = state.pos[i];
+        let (predict_pos, predict_vel) = extrapolate(state, neighbor, time, global_time);
+
+        // The vector pointing from a to b
+        let diff = predict_pos - a;
+
+        // Distance is capped
+        let dist = diff.length();
+
+        // Accelerate towards b
+        let normal = diff.normalize();
+        let behav = cfg.get_behaviour(state.colors[i], state.colors[neighbor]);
+        let accel = normal * behav.force(dist);
+
+        // Unit mass (m = 1)
+        f += accel;
+    }
+
+    f
+}
+
+
