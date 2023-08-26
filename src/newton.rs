@@ -92,9 +92,12 @@ pub fn newton_step_variable_dt(
 
         let new_accel = total_force_extrapolate(idx, state, cfg, &time, global_time);
 
-        state.pos[idx]= state.pos[idx]
+        let prev_pos = state.pos[idx];
+        state.pos[idx] = state.pos[idx]
             + state.vel[idx]* dt
             + state.accel[idx]* dt.powi(2) / 2.;
+
+        state.query.replace_point(idx, prev_pos, state.pos[idx]);
 
         state.vel[idx]= state.vel[idx]
             + state.vel[idx]* dt
@@ -159,7 +162,7 @@ impl Default for NewtonVariableConfig {
         Self {
             dt: 2e-3,
             sub_dt: 1.,
-            max_steps: 100,
+            max_steps: 10,
             damping: 0.1,
         }
     }
